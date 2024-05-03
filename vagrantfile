@@ -1,0 +1,97 @@
+# -*- mode: ruby -*-
+# vim: set ft=ruby :
+ENV['VAGRANT_SERVER_URL'] = 'https://vagrant.elab.pro'
+
+Vagrant.configure("2") do |config|
+
+config.vm.define "backupserver" do |backupserver|
+
+    backupserver.vm.box = "centos/7"
+	
+	backupserver.vm.box_version = "1.0.0"
+
+    backupserver.vm.network "private_network", ip: "192.168.10.22"
+
+    backupserver.vm.hostname = "backup-server"
+
+    backupserver.vm.provider :virtualbox do |vb|
+
+      vb.customize ["modifyvm", :id, "--memory", "512"]
+
+      vb.customize ["modifyvm", :id, "--cpus", "2"]
+
+      end
+
+    backupserver.vm.provision "shell", inline: <<-SHELL
+
+       mkdir -p ~root/.ssh; cp ~vagrant/.ssh/auth* ~root/.ssh
+
+       sed -i 's/PasswordAuthentication no/PasswordAuthentication yes/g' /etc/ssh/sshd_config
+
+       systemctl restart sshd
+
+       timedatectl set-timezone Europe/Moscow
+
+       yum install epel-release -y
+
+       yum install ntp -y && systemctl start ntpd && systemctl enable ntpd
+
+       yum install borgbackup -y     
+  
+       useradd -m borg
+
+       yum install bacula-director bacula-storage bacula-console -y
+	   
+	   curl -sS https://downloads.mariadb.com/MariaDB/mariadb_repo_setup | sudo bash
+	   
+	   sudo rpm --import https://supplychain.mariadb.com/MariaDB-Server-GPG-KEY
+
+    SHELL
+
+    end
+
+ 
+
+    config.vm.define "backupclient" do |backupclient|
+
+      backupclient.vm.box = "centos/7"
+	  
+	  backupclient.vm.box_version = "1.0.0"
+
+      backupclient.vm.network "private_network", ip: "192.168.10.23"
+
+      backupclient.vm.hostname = "backup-client"
+
+      backupclient.vm.provider :virtualbox do |vb|
+
+      vb.customize ["modifyvm", :id, "--memory", "512"]
+
+      vb.customize ["modifyvm", :id, "--cpus", "2"]
+
+      end
+
+
+      backupclient.vm.provision "shell", inline: <<-SHELL
+
+       mkdir -p ~root/.ssh; cp ~vagrant/.ssh/auth* ~root/.ssh
+
+       sed -i 's/PasswordAuthentication no/PasswordAuthentication yes/g' /etc/ssh/sshd_config
+
+       systemctl restart sshd
+
+       timedatectl set-timezone Europe/Moscow
+
+       yum install epel-release -y
+       
+       yum install ntp -y && systemctl start ntpd && systemctl enable ntpd
+
+       yum install borgbackup -y
+
+       useradd -m borg
+
+       yum install bacula-client -y
+       
+    SHELL
+
+  end
+end
